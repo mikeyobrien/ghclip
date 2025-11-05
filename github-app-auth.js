@@ -3,10 +3,25 @@
 
 class GitHubAppAuth {
   constructor() {
-    // GitHub App details
-    this.appId = '2240370'; // GitHub App ID
-    this.clientId = 'Iv23lizbV9HETLAax5VU'; // Client ID (preferred for OAuth)
-    this.appSlug = 'ghclip'; // GitHub App slug
+    // GitHub App credentials
+    //
+    // SECURITY NOTE: Hardcoded Client ID is ACCEPTABLE for OAuth2 Public Clients
+    // =============================================================================
+    // Per OAuth 2.0 specification (RFC 6749), browser extensions and mobile apps
+    // are considered "public clients" that cannot securely store secrets.
+    //
+    // The Client ID below is intentionally public and visible in the code because:
+    // 1. Browser extensions run in the user's browser (not a secure server)
+    // 2. GitHub's Device Flow doesn't require a client secret for public clients
+    // 3. Security comes from user authorization, not from hiding the client ID
+    // 4. This follows GitHub's recommended pattern for OAuth Apps in extensions
+    //
+    // CRITICAL: The Client SECRET must NEVER be included in client-side code!
+    // If you see a client secret anywhere in this codebase, remove it immediately.
+    //
+    this.appId = '2240370'; // GitHub App ID (public identifier)
+    this.clientId = 'Iv23lizbV9HETLAax5VU'; // OAuth Client ID (public, safe to expose)
+    this.appSlug = 'ghclip'; // GitHub App slug (public identifier)
     this.deviceCodeUrl = 'https://github.com/login/device/code';
     this.accessTokenUrl = 'https://github.com/login/oauth/access_token';
     this.installUrl = 'https://github.com/apps/ghclip/installations/new';
@@ -26,7 +41,11 @@ class GitHubAppAuth {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to check installations: ${response.statusText}`);
+        // Check for authorization errors (token revoked or expired)
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`Unauthorized (${response.status}): Token may be revoked or expired`);
+        }
+        throw new Error(`Failed to check installations (${response.status}): ${response.statusText}`);
       }
 
       const data = await response.json();
@@ -65,6 +84,20 @@ class GitHubAppAuth {
 
   /**
    * Start the Device Flow for user authentication
+   *
+   * IMPORTANT: OAuth Scope Clarification
+   * ====================================
+   * We only request 'read:user' scope in the OAuth flow because:
+   * 1. We need user identity to check which GitHub Apps they have installed
+   * 2. Repository access comes from the GitHub App installation, NOT from OAuth scopes
+   * 3. When users install the GitHub App, they explicitly choose which repos to grant access to
+   * 4. The installation token (not user token) is used for all repo operations
+   *
+   * This approach follows GitHub's recommended pattern for GitHub Apps and provides:
+   * - Fine-grained, repository-specific permissions
+   * - User control over which repos the app can access
+   * - Automatic token refresh (installation tokens expire after 1 hour)
+   * - Higher rate limits (15,000 req/hour vs 5,000 for PATs)
    */
   async startDeviceFlow() {
     try {
@@ -76,7 +109,7 @@ class GitHubAppAuth {
         },
         body: JSON.stringify({
           client_id: this.clientId, // Use Client ID for OAuth
-          scope: 'read:user'
+          scope: 'read:user' // Only need user identity - repo access comes from app installation
         })
       });
 
@@ -267,7 +300,11 @@ class GitHubAppAuth {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to get repositories: ${response.statusText}`);
+        // Check for authorization errors
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`Unauthorized (${response.status}): Installation token may be expired or revoked`);
+        }
+        throw new Error(`Failed to get repositories (${response.status}): ${response.statusText}`);
       }
 
       const data = await response.json();

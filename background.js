@@ -4,6 +4,25 @@
 
 let syncIntervalId = null;
 
+// Clear invalid authentication data
+async function clearInvalidAuth() {
+  console.log('Clearing invalid authentication data');
+  await chrome.storage.sync.remove([
+    'appUserToken',
+    'appUserInfo',
+    'appInstallation',
+    'appInstallationToken',
+    'appTokenExpiry',
+    'authMethod',
+    'githubToken'
+  ]);
+
+  // Notify user via badge
+  chrome.action.setBadgeText({ text: '!' });
+  chrome.action.setBadgeBackgroundColor({ color: '#FF0000' });
+  chrome.action.setTitle({ title: 'GHClip: Authentication expired - Please reconnect' });
+}
+
 // GitHub App token refresh helper
 async function refreshAppTokenIfNeeded() {
   const data = await chrome.storage.sync.get([
@@ -45,7 +64,12 @@ async function refreshAppTokenIfNeeded() {
       );
 
       if (!response.ok) {
-        throw new Error(`Failed to refresh token: ${response.statusText}`);
+        const errorText = await response.text();
+        // Check for authorization errors
+        if (response.status === 401 || response.status === 403) {
+          throw new Error(`Unauthorized (${response.status}): Token may be revoked or expired`);
+        }
+        throw new Error(`Failed to refresh token (${response.status}): ${response.statusText} - ${errorText}`);
       }
 
       const tokenData = await response.json();
@@ -122,10 +146,22 @@ async function syncToGitHub() {
     const refreshedToken = await refreshAppTokenIfNeeded();
     if (refreshedToken) {
       console.log('Using refreshed GitHub App token');
+      // Update the token in settings for immediate use
+      await chrome.storage.sync.set({ githubToken: refreshedToken });
     }
   } catch (error) {
     console.error('Token refresh failed:', error);
-    // Continue with existing token if refresh fails
+
+    // Check if it's an auth error (401/403)
+    if (error.message.includes('401') || error.message.includes('403') || error.message.includes('Unauthorized')) {
+      // Token is invalid - clear auth data and notify user
+      console.error('Authentication token is invalid or revoked');
+      await clearInvalidAuth();
+      throw new Error('GitHub authentication expired. Please reconnect in settings.');
+    }
+
+    // For other errors, try to continue with existing token but log warning
+    console.warn('Attempting to continue with existing token');
   }
 
   // Get settings
@@ -284,6 +320,13 @@ async function syncLinksToFile(path, newLinks, settings) {
   );
 
   if (!updateResponse.ok) {
+    // Check for authorization errors
+    if (updateResponse.status === 401 || updateResponse.status === 403) {
+      console.error('Authorization failed - token may be revoked');
+      await clearInvalidAuth();
+      throw new Error('GitHub authentication is no longer valid. Please reconnect in settings.');
+    }
+
     const error = await updateResponse.json();
     throw new Error(`GitHub API error: ${error.message}`);
   }

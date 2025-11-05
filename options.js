@@ -3,6 +3,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Initialize GitHub App Auth
   const githubApp = new GitHubAppAuth();
   let currentAuthFlow = null;
+  let authTimerInterval = null;
 
   const elements = {
     // GitHub App elements
@@ -22,6 +23,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     copyCode: document.getElementById('copyCode'),
     openGitHub: document.getElementById('openGitHub'),
     cancelAuth: document.getElementById('cancelAuth'),
+    authTimer: document.getElementById('authTimer'),
     installSuccessModal: document.getElementById('installSuccessModal'),
     closeInstallSuccess: document.getElementById('closeInstallSuccess'),
     repoSelection: document.getElementById('repoSelection'),
@@ -78,6 +80,51 @@ document.addEventListener('DOMContentLoaded', async () => {
   // Periodically check if installation completed (when in "needs installation" state)
   let installCheckInterval = null;
 
+  // Start countdown timer for device code expiration
+  function startAuthTimer(expiresIn) {
+    // Clear any existing timer
+    if (authTimerInterval) {
+      clearInterval(authTimerInterval);
+    }
+
+    const expiryTime = Date.now() + (expiresIn * 1000);
+
+    function updateTimer() {
+      const remaining = Math.max(0, Math.floor((expiryTime - Date.now()) / 1000));
+      const minutes = Math.floor(remaining / 60);
+      const seconds = remaining % 60;
+
+      if (remaining <= 0) {
+        elements.authTimer.textContent = 'Code expired. Please try again.';
+        elements.authTimer.style.color = '#dc3545';
+        clearInterval(authTimerInterval);
+        authTimerInterval = null;
+      } else if (remaining <= 60) {
+        elements.authTimer.textContent = `Code expires in ${seconds} second${seconds !== 1 ? 's' : ''}`;
+        elements.authTimer.style.color = '#dc3545';
+      } else if (remaining <= 300) {
+        elements.authTimer.textContent = `Code expires in ${minutes}:${String(seconds).padStart(2, '0')}`;
+        elements.authTimer.style.color = '#fd7e14';
+      } else {
+        elements.authTimer.textContent = `Code expires in ${minutes}:${String(seconds).padStart(2, '0')}`;
+        elements.authTimer.style.color = '#666';
+      }
+    }
+
+    updateTimer();
+    authTimerInterval = setInterval(updateTimer, 1000);
+  }
+
+  function stopAuthTimer() {
+    if (authTimerInterval) {
+      clearInterval(authTimerInterval);
+      authTimerInterval = null;
+    }
+    if (elements.authTimer) {
+      elements.authTimer.textContent = '';
+    }
+  }
+
   // Manual config event listeners
   elements.saveBtn.addEventListener('click', saveSettings);
   elements.testConnection.addEventListener('click', testGitHubConnection);
@@ -92,7 +139,8 @@ document.addEventListener('DOMContentLoaded', async () => {
       'appUserInfo',
       'appInstallation',
       'appInstallationToken',
-      'appTokenExpiry'
+      'appTokenExpiry',
+      'awaitingInstallation'
     ]);
 
     if (data.appUserToken && data.appUserInfo) {
@@ -103,6 +151,12 @@ document.addEventListener('DOMContentLoaded', async () => {
       } else {
         // Need to install app
         showAppNeedsInstallation(data.appUserInfo);
+
+        // If we were awaiting installation, automatically check again
+        if (data.awaitingInstallation) {
+          console.log('Resuming installation check...');
+          setTimeout(checkInstallationStatus, 2000);
+        }
       }
     } else {
       showAppNotConnected();
@@ -122,10 +176,16 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.appConnected.style.display = 'none';
     elements.repoSelection.style.display = 'none';
 
+    // Save that we're waiting for installation
+    chrome.storage.sync.set({ awaitingInstallation: true });
+
     // Start checking for installation
     if (!installCheckInterval) {
       installCheckInterval = setInterval(checkInstallationStatus, 5000);
     }
+
+    // Show helpful message
+    showStatus('Please install the GitHub App. We\'ll automatically detect when you\'re done.', 'info');
   }
 
   async function showAppConnected(userInfo, installation) {
@@ -136,6 +196,9 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.appEmail.textContent = userInfo.email || userInfo.login + '@users.noreply.github.com';
     elements.appAvatar.src = userInfo.avatar_url;
     elements.repoSelection.style.display = 'block';
+
+    // Clear awaiting installation flag
+    await chrome.storage.sync.remove(['awaitingInstallation']);
 
     // Stop installation checking
     if (installCheckInterval) {
@@ -153,7 +216,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   async function checkInstallationStatus() {
     try {
-      const data = await chrome.storage.sync.get(['appUserToken']);
+      const data = await chrome.storage.sync.get(['appUserToken', 'awaitingInstallation']);
       if (!data.appUserToken) return;
 
       const installation = await githubApp.checkInstallation(data.appUserToken);
@@ -164,6 +227,9 @@ document.addEventListener('DOMContentLoaded', async () => {
           appInstallation: installation
         });
 
+        // Clear awaiting flag
+        await chrome.storage.sync.remove(['awaitingInstallation']);
+
         // Show success modal
         elements.installSuccessModal.style.display = 'flex';
 
@@ -172,9 +238,23 @@ document.addEventListener('DOMContentLoaded', async () => {
           clearInterval(installCheckInterval);
           installCheckInterval = null;
         }
+
+        console.log('Installation detected successfully!');
+      } else if (data.awaitingInstallation) {
+        // Still waiting - show encouraging message
+        console.log('Still waiting for installation...');
       }
     } catch (error) {
       console.error('Error checking installation:', error);
+
+      // Check if it's an auth error
+      if (error.message.includes('401') || error.message.includes('403')) {
+        showStatus('Authentication error. Please try connecting again.', 'error');
+        if (installCheckInterval) {
+          clearInterval(installCheckInterval);
+          installCheckInterval = null;
+        }
+      }
     }
   }
 
@@ -194,9 +274,15 @@ document.addEventListener('DOMContentLoaded', async () => {
         window.open(deviceFlow.verificationUri, '_blank');
       };
 
+      // Start countdown timer
+      startAuthTimer(deviceFlow.expiresIn);
+
       // Wait for user to authorize
       try {
         const result = await currentAuthFlow.waitForAuth();
+
+        // Stop timer on success
+        stopAuthTimer();
 
         // Save user token and info
         await chrome.storage.sync.set({
@@ -234,12 +320,14 @@ document.addEventListener('DOMContentLoaded', async () => {
           showStatus('Successfully connected with GitHub App!', 'success');
         }
       } catch (error) {
+        stopAuthTimer();
         elements.deviceFlowModal.style.display = 'none';
         throw error;
       }
     } catch (error) {
       console.error('App auth flow failed:', error);
       showStatus('Authentication failed: ' + error.message, 'error');
+      stopAuthTimer();
     } finally {
       elements.appLogin.disabled = false;
       currentAuthFlow = null;
@@ -295,6 +383,7 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function cancelAuthFlow() {
+    stopAuthTimer();
     elements.deviceFlowModal.style.display = 'none';
     currentAuthFlow = null;
     showStatus('Authentication cancelled', 'info');
