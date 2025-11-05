@@ -124,9 +124,11 @@ class GitHubAppAuth {
           });
 
           const data = await response.json();
+          console.log('[Poll]', new Date().toLocaleTimeString(), 'Response:', data);
 
           if (data.error) {
             if (data.error === 'authorization_pending') {
+              console.log('Still waiting for user authorization...');
               return; // Keep polling
             } else if (data.error === 'slow_down') {
               return; // Keep polling
