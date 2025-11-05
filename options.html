@@ -13,11 +13,108 @@
     </header>
 
     <main>
-      <section class="config-section">
-        <h2>GitHub Configuration</h2>
+      <!-- OAuth Section -->
+      <section class="config-section oauth-section">
+        <h2>🚀 Quick Setup with OAuth (Recommended)</h2>
         <p class="description">
-          Configure your GitHub repository where links will be saved.
-          You'll need a personal access token with <code>repo</code> permissions.
+          Connect to GitHub with one click! OAuth provides a secure, easy way to authenticate
+          and select your repository.
+        </p>
+
+        <div id="oauthNotConnected" class="oauth-status">
+          <p>Not connected to GitHub</p>
+          <button id="oauthLogin" class="oauth-btn">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+            </svg>
+            Connect with GitHub
+          </button>
+        </div>
+
+        <div id="oauthConnected" class="oauth-status" style="display: none;">
+          <div class="oauth-user-info">
+            <img id="oauthAvatar" class="oauth-avatar" src="" alt="User avatar">
+            <div>
+              <p class="oauth-username">Connected as <strong id="oauthUser"></strong></p>
+              <p class="oauth-email" id="oauthEmail"></p>
+            </div>
+          </div>
+          <button id="oauthDisconnect" class="secondary-btn">Disconnect</button>
+        </div>
+
+        <!-- Device Flow Modal -->
+        <div id="deviceFlowModal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <h3>Authorize GHClip</h3>
+            <p>To connect GHClip to your GitHub account:</p>
+            <ol>
+              <li>Copy the code below:</li>
+            </ol>
+            <div class="device-code-display">
+              <code id="deviceCode" class="device-code"></code>
+              <button id="copyCode" class="copy-btn">📋 Copy</button>
+            </div>
+            <ol start="2">
+              <li>Click the button below to open GitHub</li>
+            </ol>
+            <button id="openGitHub" class="oauth-btn">Open GitHub Authorization</button>
+            <ol start="3">
+              <li>Paste the code and authorize GHClip</li>
+            </ol>
+            <p class="waiting-text">Waiting for authorization...</p>
+            <div class="spinner"></div>
+            <button id="cancelAuth" class="secondary-btn">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Repository Selection -->
+        <div id="repoSelection" class="form-group" style="display: none;">
+          <label for="repoSelect">Select Repository:</label>
+          <select id="repoSelect">
+            <option value="">Select a repository...</option>
+          </select>
+          <small>Choose where to save your links</small>
+          <button id="createNewRepo" class="secondary-btn" style="margin-top: 8px;">
+            ➕ Create New Repository
+          </button>
+        </div>
+
+        <!-- Create New Repo Modal -->
+        <div id="createRepoModal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <h3>Create New Repository</h3>
+            <div class="form-group">
+              <label for="newRepoName">Repository Name:</label>
+              <input type="text" id="newRepoName" placeholder="my-saved-links">
+            </div>
+            <div class="form-group">
+              <label for="newRepoDesc">Description (optional):</label>
+              <input type="text" id="newRepoDesc" placeholder="Links saved with GHClip" value="Links saved with GHClip">
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="newRepoPrivate" checked>
+                Private repository
+              </label>
+              <small>Private repos are only visible to you</small>
+            </div>
+            <div class="modal-actions">
+              <button id="confirmCreateRepo" class="primary-btn">Create Repository</button>
+              <button id="cancelCreateRepo" class="secondary-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider">
+        <span>OR</span>
+      </div>
+
+      <!-- Manual Configuration Section -->
+      <section class="config-section">
+        <h2>⚙️ Manual Configuration</h2>
+        <p class="description">
+          For advanced users: manually configure with a personal access token.
         </p>
 
         <div class="form-group">
@@ -126,6 +223,7 @@
       </section>
     </main>
   </div>
+  <script src="github-auth.js"></script>
   <script src="options.js"></script>
 </body>
 </html>

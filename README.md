@@ -4,6 +4,8 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 
 ## ✨ Features
 
+- **🚀 OAuth Integration**: One-click GitHub authentication with device flow (no tokens to manage!)
+- **📁 Repository Management**: Browse, select, or create repositories directly from the extension
 - **🔖 Quick Save**: Save links with one click from any webpage
 - **🏷️ Organization**: Add tags, categories, and notes to your links
 - **📦 Scalable Storage**: Designed to handle thousands of links efficiently
@@ -12,6 +14,7 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 - **📊 Multiple Storage Strategies**: Organize links by month, year, or category
 - **📥 Export**: Export your links to JSON format anytime
 - **🎨 Clean UI**: Beautiful, modern interface built with user experience in mind
+- **🔒 Secure**: Uses GitHub's OAuth for secure authentication (or manual tokens if preferred)
 
 ## 🚀 Installation
 
@@ -35,38 +38,71 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 
 ## ⚙️ Setup & Configuration
 
-### 1. Create a GitHub Repository
+### Method 1: Quick Setup with OAuth (Recommended) 🚀
 
-Create a new repository on GitHub where your links will be stored. It can be public or private.
+The easiest way to get started! OAuth provides secure, one-click authentication without managing tokens.
 
-### 2. Generate a Personal Access Token
+1. **Open Settings**
+   - Click the GHClip extension icon in Chrome
+   - Click the settings (⚙️) button
 
-1. Go to [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)
-2. Click "Generate new token (classic)"
-3. Give it a descriptive name (e.g., "GHClip Extension")
-4. Select the `repo` scope (full control of private repositories)
-5. Click "Generate token" and **copy it immediately**
+2. **Connect with GitHub**
+   - Click the "Connect with GitHub" button in the OAuth section
+   - A modal will appear with a device code
+   - Click "Copy" to copy the code
+   - Click "Open GitHub Authorization" to open GitHub in a new tab
 
-⚠️ **Important**: Save your token securely! You won't be able to see it again.
+3. **Authorize GHClip**
+   - Paste the device code on GitHub's authorization page
+   - Click "Continue" and authorize GHClip
+   - Return to the extension settings page
 
-### 3. Configure the Extension
+4. **Select Repository**
+   - Once connected, you'll see your GitHub profile
+   - Choose an existing repository from the dropdown, or
+   - Click "Create New Repository" to create one specifically for GHClip
+     - Name it (e.g., "my-saved-links")
+     - Choose whether it should be private (recommended)
+     - Click "Create Repository"
 
-1. Click the GHClip extension icon in Chrome
-2. Click the settings (⚙️) button
-3. Enter your configuration:
-   - **GitHub Username/Organization**: Your GitHub username
-   - **Repository Name**: The repo where links will be saved
-   - **Personal Access Token**: The token you just created
-   - **Branch Name**: Usually `main` (or `master` for older repos)
-
-4. Configure sync settings:
+5. **Configure Sync Settings**
    - **Auto-sync**: Enable/disable automatic syncing
    - **Sync Interval**: How often to sync (5-1440 minutes)
    - **Batch Size**: Number of links to sync at once (1-100)
    - **Storage Strategy**: Choose how to organize your links
 
-5. Click "Test Connection" to verify your setup
-6. Click "Save Settings"
+6. **Start Saving Links!**
+   - You're all set! Start saving links with one click
+
+### Method 2: Manual Configuration with Personal Access Token
+
+For advanced users who prefer manual token management:
+
+1. **Create a GitHub Repository**
+   - Create a new repository on GitHub where your links will be stored
+   - It can be public or private
+
+2. **Generate a Personal Access Token**
+   - Go to [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens)
+   - Click "Generate new token (classic)"
+   - Give it a descriptive name (e.g., "GHClip Extension")
+   - Select the `repo` scope (full control of private repositories)
+   - Click "Generate token" and **copy it immediately**
+   - ⚠️ **Important**: Save your token securely! You won't be able to see it again.
+
+3. **Configure the Extension**
+   - Click the GHClip extension icon in Chrome
+   - Click the settings (⚙️) button
+   - Scroll to the "Manual Configuration" section
+   - Enter your configuration:
+     - **GitHub Username/Organization**: Your GitHub username
+     - **Repository Name**: The repo where links will be saved
+     - **Personal Access Token**: The token you just created
+     - **Branch Name**: Usually `main` (or `master` for older repos)
+   - Click "Test Connection" to verify your setup
+   - Click "Save Settings"
+
+4. **Configure Sync Settings** (same as OAuth method above)
 
 ## 📖 Usage
 
@@ -183,7 +219,8 @@ ghclip/
 
 ## 🔮 Future Enhancements
 
-- [ ] **OAuth Integration**: Allow users to authenticate and select repositories via OAuth instead of manual token entry
+- [x] **OAuth Integration**: ✅ Implemented! One-click authentication with device flow
+- [x] **Repository Management**: ✅ Implemented! Browse and create repos from extension
 - [ ] **Browser Sync**: Sync across multiple Chrome profiles/devices
 - [ ] **Import from Bookmarks**: Import existing Chrome bookmarks
 - [ ] **Collections**: Group links into custom collections
@@ -195,29 +232,57 @@ ghclip/
 - [ ] **Link Preview**: Show page previews on hover
 - [ ] **Duplicate Detection**: Warn when saving duplicate URLs
 - [ ] **Archive Integration**: Integrate with archive.org for permanent backups
+- [ ] **Token Refresh**: Automatic OAuth token refresh
+- [ ] **Batch Import**: Import links from JSON/CSV files
 
 ## 🐛 Troubleshooting
 
-### "GitHub not configured" error
-- Make sure you've entered all required fields in settings
-- Verify your token has `repo` scope
+### OAuth Issues
+
+#### "Authentication timeout" error
+- The device code expired (15 minutes)
+- Click "Connect with GitHub" again to get a new code
+- Make sure to authorize on GitHub before the timeout
+
+#### Can't see my repositories
+- Make sure you completed the OAuth authorization on GitHub
+- Try disconnecting and reconnecting your account
+- Check that you authorized the correct GitHub account
+
+#### Created repository doesn't appear
+- Click the refresh button in the extension settings
+- Or disconnect and reconnect to reload the repository list
+
+### General Issues
+
+#### "GitHub not configured" error
+- Make sure you've completed OAuth setup OR entered manual token credentials
+- Verify your token has `repo` scope (for manual setup)
 - Test the connection in settings
 
-### Links not syncing
+#### Links not syncing
 - Check your internet connection
-- Verify your GitHub token is still valid
+- Verify your GitHub token/OAuth is still valid
 - Check the pending sync count in the popup
-- Try manual sync
+- Try manual sync with the "Sync Now" button
 
-### "API rate limit exceeded"
+#### "API rate limit exceeded"
 - GitHub API has rate limits (5000 requests/hour for authenticated users)
 - Reduce batch size in settings
 - Increase sync interval
+- This usually resets after an hour
 
-### Repository not found
-- Verify the repository exists
+#### Repository not found
+- Verify the repository exists on GitHub
 - Check the owner/username is correct
-- Ensure your token has access to the repository (especially for organization repos)
+- Ensure your token/OAuth has access to the repository (especially for organization repos)
+- For OAuth: make sure you selected a repository from the dropdown
+
+#### Device code doesn't work
+- Make sure you copied the entire code correctly
+- The code is case-sensitive
+- Don't include any extra spaces
+- Try clicking "Copy" button instead of manual selection
 
 ## 📄 License
 
