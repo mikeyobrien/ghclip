@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GHClip Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📌 GHClip Settings</h1>
+    </header>
+
+    <main>
+      <!-- GitHub App Section -->
+      <section class="config-section oauth-section">
+        <h2>🚀 Quick Setup with GitHub App (Recommended)</h2>
+        <p class="description">
+          Install GHClip as a GitHub App for secure, fine-grained access to your repositories.
+          Tokens auto-refresh and you choose exactly which repos to grant access to.
+        </p>
+
+        <!-- Step 1: Authenticate -->
+        <div id="appNotConnected" class="oauth-status">
+          <p>Not connected to GitHub</p>
+          <button id="appLogin" class="oauth-btn">
+            <svg width="20" height="20" viewBox="0 0 16 16" fill="currentColor">
+              <path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27.68 0 1.36.09 2 .27 1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.013 8.013 0 0016 8c0-4.42-3.58-8-8-8z"></path>
+            </svg>
+            Connect with GitHub
+          </button>
+        </div>
+
+        <!-- Step 2: Install App -->
+        <div id="appNeedsInstallation" class="oauth-status" style="display: none;">
+          <div class="info-box">
+            <p><strong>✓ Authenticated!</strong></p>
+            <p>Now install the GHClip app on your repositories:</p>
+          </div>
+          <button id="installApp" class="oauth-btn">
+            ⚡ Install GitHub App
+          </button>
+          <p class="help-text">You'll choose which repositories to grant access to</p>
+        </div>
+
+        <!-- Step 3: Connected -->
+        <div id="appConnected" class="oauth-status" style="display: none;">
+          <div class="oauth-user-info">
+            <img id="appAvatar" class="oauth-avatar" src="" alt="User avatar">
+            <div>
+              <p class="oauth-username">Connected as <strong id="appUser"></strong></p>
+              <p class="oauth-email" id="appEmail"></p>
+              <p class="app-install-info">
+                <span class="badge">✓ App Installed</span>
+                <span id="appRepoCount"></span>
+              </p>
+            </div>
+          </div>
+          <div class="app-actions">
+            <button id="manageInstallation" class="secondary-btn">⚙️ Manage Installation</button>
+            <button id="appDisconnect" class="secondary-btn">Disconnect</button>
+          </div>
+        </div>
+
+        <!-- Device Flow Modal -->
+        <div id="deviceFlowModal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <h3>Authorize GHClip</h3>
+            <p>To connect GHClip to your GitHub account:</p>
+            <ol>
+              <li>Copy the code below:</li>
+            </ol>
+            <div class="device-code-display">
+              <code id="deviceCode" class="device-code"></code>
+              <button id="copyCode" class="copy-btn">📋 Copy</button>
+            </div>
+            <ol start="2">
+              <li>Click the button below to open GitHub</li>
+            </ol>
+            <button id="openGitHub" class="oauth-btn">Open GitHub Authorization</button>
+            <ol start="3">
+              <li>Paste the code and authorize GHClip</li>
+            </ol>
+            <p class="waiting-text">Waiting for authorization...</p>
+            <div class="spinner"></div>
+            <button id="cancelAuth" class="secondary-btn">Cancel</button>
+          </div>
+        </div>
+
+        <!-- Installation Success Modal -->
+        <div id="installSuccessModal" class="modal" style="display: none;">
+          <div class="modal-content success-modal">
+            <h3>✓ Installation Complete!</h3>
+            <p>GHClip has been successfully installed on your repositories.</p>
+            <p>You can now select a repository to save your links.</p>
+            <button id="closeInstallSuccess" class="primary-btn">Continue</button>
+          </div>
+        </div>
+
+        <!-- Repository Selection -->
+        <div id="repoSelection" class="form-group" style="display: none;">
+          <label for="repoSelect">Select Repository:</label>
+          <select id="repoSelect">
+            <option value="">Select a repository...</option>
+          </select>
+          <small>Choose where to save your links</small>
+          <button id="createNewRepo" class="secondary-btn" style="margin-top: 8px;">
+            ➕ Create New Repository
+          </button>
+        </div>
+
+        <!-- Create New Repo Modal -->
+        <div id="createRepoModal" class="modal" style="display: none;">
+          <div class="modal-content">
+            <h3>Create New Repository</h3>
+            <div class="form-group">
+              <label for="newRepoName">Repository Name:</label>
+              <input type="text" id="newRepoName" placeholder="my-saved-links">
+            </div>
+            <div class="form-group">
+              <label for="newRepoDesc">Description (optional):</label>
+              <input type="text" id="newRepoDesc" placeholder="Links saved with GHClip" value="Links saved with GHClip">
+            </div>
+            <div class="form-group">
+              <label>
+                <input type="checkbox" id="newRepoPrivate" checked>
+                Private repository
+              </label>
+              <small>Private repos are only visible to you</small>
+            </div>
+            <div class="modal-actions">
+              <button id="confirmCreateRepo" class="primary-btn">Create Repository</button>
+              <button id="cancelCreateRepo" class="secondary-btn">Cancel</button>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <div class="divider">
+        <span>OR</span>
+      </div>
+
+      <!-- Manual Configuration Section -->
+      <section class="config-section">
+        <h2>⚙️ Manual Configuration</h2>
+        <p class="description">
+          For advanced users: manually configure with a personal access token.
+        </p>
+
+        <div class="form-group">
+          <label for="githubOwner">GitHub Username/Organization:</label>
+          <input type="text" id="githubOwner" placeholder="e.g., octocat">
+          <small>The owner of the repository</small>
+        </div>
+
+        <div class="form-group">
+          <label for="githubRepo">Repository Name:</label>
+          <input type="text" id="githubRepo" placeholder="e.g., my-saved-links">
+          <small>The repository where links will be stored</small>
+        </div>
+
+        <div class="form-group">
+          <label for="githubToken">Personal Access Token:</label>
+          <input type="password" id="githubToken" placeholder="ghp_...">
+          <small>
+            Create a token at
+            <a href="https://github.com/settings/tokens/new" target="_blank">
+              GitHub Settings → Tokens
+            </a>
+            with <code>repo</code> scope
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="branchName">Branch Name (optional):</label>
+          <input type="text" id="branchName" placeholder="main" value="main">
+          <small>The branch to save to (default: main)</small>
+        </div>
+      </section>
+
+      <section class="config-section">
+        <h2>Sync Settings</h2>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="autoSync">
+            Auto-sync to GitHub
+          </label>
+          <small>Automatically sync new links to GitHub</small>
+        </div>
+
+        <div class="form-group">
+          <label for="syncInterval">Sync Interval (minutes):</label>
+          <input type="number" id="syncInterval" min="5" max="1440" value="30">
+          <small>How often to sync when auto-sync is enabled (5-1440 minutes)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="batchSize">Batch Size:</label>
+          <input type="number" id="batchSize" min="1" max="100" value="10">
+          <small>Number of links to sync at once (1-100)</small>
+        </div>
+      </section>
+
+      <section class="config-section">
+        <h2>Storage Settings</h2>
+
+        <div class="form-group">
+          <label for="storageStrategy">Storage Strategy:</label>
+          <select id="storageStrategy">
+            <option value="monthly">Monthly Files (YYYY-MM.json)</option>
+            <option value="yearly">Yearly Files (YYYY.json)</option>
+            <option value="single">Single File (links.json)</option>
+            <option value="category">By Category (category/links.json)</option>
+          </select>
+          <small>How to organize links in your repository</small>
+        </div>
+      </section>
+
+      <div id="status" class="status"></div>
+
+      <div class="actions">
+        <button id="saveBtn" class="primary-btn">💾 Save Settings</button>
+        <button id="testConnection" class="secondary-btn">🔍 Test Connection</button>
+      </div>
+
+      <section class="info-section">
+        <h3>ℹ️ Setup Instructions</h3>
+        <ol>
+          <li>Create a GitHub repository for storing your links (can be private)</li>
+          <li>Generate a Personal Access Token:
+            <ul>
+              <li>Go to GitHub Settings → Developer settings → Personal access tokens</li>
+              <li>Click "Generate new token (classic)"</li>
+              <li>Give it a name like "GHClip Extension"</li>
+              <li>Select the <code>repo</code> scope (full control of private repositories)</li>
+              <li>Click "Generate token" and copy it</li>
+            </ul>
+          </li>
+          <li>Paste your token above (it will be stored securely in Chrome)</li>
+          <li>Configure your sync preferences</li>
+          <li>Save and start clipping!</li>
+        </ol>
+      </section>
+
+      <section class="danger-section">
+        <h3>⚠️ Data Management</h3>
+        <div class="danger-actions">
+          <button id="exportData" class="secondary-btn">📥 Export All Data</button>
+          <button id="clearLocal" class="danger-btn">🗑️ Clear Local Storage</button>
+        </div>
+        <small>Export your data before clearing. This cannot be undone!</small>
+      </section>
+    </main>
+  </div>
+  <script src="github-app-auth.js"></script>
+  <script src="options.js"></script>
+</body>
+</html>
