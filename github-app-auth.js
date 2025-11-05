@@ -3,8 +3,9 @@
 
 class GitHubAppAuth {
   constructor() {
-    // GitHub App details - these would be specific to the registered app
-    this.appId = 'YOUR_APP_ID'; // Will be set after app registration
+    // GitHub App details
+    this.appId = '2240370'; // GitHub App ID
+    this.clientId = 'Iv23lizbV9HETLAax5VU'; // Client ID (preferred for OAuth)
     this.appSlug = 'ghclip'; // GitHub App slug
     this.deviceCodeUrl = 'https://github.com/login/device/code';
     this.accessTokenUrl = 'https://github.com/login/oauth/access_token';
@@ -74,7 +75,7 @@ class GitHubAppAuth {
           'Content-Type': 'application/json'
         },
         body: JSON.stringify({
-          client_id: `Iv1.${this.appId}`, // GitHub App client ID format
+          client_id: this.clientId, // Use Client ID for OAuth
           scope: 'read:user'
         })
       });
@@ -114,7 +115,7 @@ class GitHubAppAuth {
               'Content-Type': 'application/json'
             },
             body: JSON.stringify({
-              client_id: `Iv1.${this.appId}`,
+              client_id: this.clientId, // Use Client ID for OAuth
               device_code: deviceCode,
               grant_type: 'urn:ietf:params:oauth:grant-type:device_code'
             })
