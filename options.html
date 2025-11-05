@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GHClip Settings</title>
+  <link rel="stylesheet" href="options.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📌 GHClip Settings</h1>
+    </header>
+
+    <main>
+      <section class="config-section">
+        <h2>GitHub Configuration</h2>
+        <p class="description">
+          Configure your GitHub repository where links will be saved.
+          You'll need a personal access token with <code>repo</code> permissions.
+        </p>
+
+        <div class="form-group">
+          <label for="githubOwner">GitHub Username/Organization:</label>
+          <input type="text" id="githubOwner" placeholder="e.g., octocat">
+          <small>The owner of the repository</small>
+        </div>
+
+        <div class="form-group">
+          <label for="githubRepo">Repository Name:</label>
+          <input type="text" id="githubRepo" placeholder="e.g., my-saved-links">
+          <small>The repository where links will be stored</small>
+        </div>
+
+        <div class="form-group">
+          <label for="githubToken">Personal Access Token:</label>
+          <input type="password" id="githubToken" placeholder="ghp_...">
+          <small>
+            Create a token at
+            <a href="https://github.com/settings/tokens/new" target="_blank">
+              GitHub Settings → Tokens
+            </a>
+            with <code>repo</code> scope
+          </small>
+        </div>
+
+        <div class="form-group">
+          <label for="branchName">Branch Name (optional):</label>
+          <input type="text" id="branchName" placeholder="main" value="main">
+          <small>The branch to save to (default: main)</small>
+        </div>
+      </section>
+
+      <section class="config-section">
+        <h2>Sync Settings</h2>
+
+        <div class="form-group">
+          <label>
+            <input type="checkbox" id="autoSync">
+            Auto-sync to GitHub
+          </label>
+          <small>Automatically sync new links to GitHub</small>
+        </div>
+
+        <div class="form-group">
+          <label for="syncInterval">Sync Interval (minutes):</label>
+          <input type="number" id="syncInterval" min="5" max="1440" value="30">
+          <small>How often to sync when auto-sync is enabled (5-1440 minutes)</small>
+        </div>
+
+        <div class="form-group">
+          <label for="batchSize">Batch Size:</label>
+          <input type="number" id="batchSize" min="1" max="100" value="10">
+          <small>Number of links to sync at once (1-100)</small>
+        </div>
+      </section>
+
+      <section class="config-section">
+        <h2>Storage Settings</h2>
+
+        <div class="form-group">
+          <label for="storageStrategy">Storage Strategy:</label>
+          <select id="storageStrategy">
+            <option value="monthly">Monthly Files (YYYY-MM.json)</option>
+            <option value="yearly">Yearly Files (YYYY.json)</option>
+            <option value="single">Single File (links.json)</option>
+            <option value="category">By Category (category/links.json)</option>
+          </select>
+          <small>How to organize links in your repository</small>
+        </div>
+      </section>
+
+      <div id="status" class="status"></div>
+
+      <div class="actions">
+        <button id="saveBtn" class="primary-btn">💾 Save Settings</button>
+        <button id="testConnection" class="secondary-btn">🔍 Test Connection</button>
+      </div>
+
+      <section class="info-section">
+        <h3>ℹ️ Setup Instructions</h3>
+        <ol>
+          <li>Create a GitHub repository for storing your links (can be private)</li>
+          <li>Generate a Personal Access Token:
+            <ul>
+              <li>Go to GitHub Settings → Developer settings → Personal access tokens</li>
+              <li>Click "Generate new token (classic)"</li>
+              <li>Give it a name like "GHClip Extension"</li>
+              <li>Select the <code>repo</code> scope (full control of private repositories)</li>
+              <li>Click "Generate token" and copy it</li>
+            </ul>
+          </li>
+          <li>Paste your token above (it will be stored securely in Chrome)</li>
+          <li>Configure your sync preferences</li>
+          <li>Save and start clipping!</li>
+        </ol>
+      </section>
+
+      <section class="danger-section">
+        <h3>⚠️ Data Management</h3>
+        <div class="danger-actions">
+          <button id="exportData" class="secondary-btn">📥 Export All Data</button>
+          <button id="clearLocal" class="danger-btn">🗑️ Clear Local Storage</button>
+        </div>
+        <small>Export your data before clearing. This cannot be undone!</small>
+      </section>
+    </main>
+  </div>
+  <script src="options.js"></script>
+</body>
+</html>

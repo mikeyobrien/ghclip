@@ -1,0 +1,76 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>GHClip - Save Link</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>📌 GHClip</h1>
+      <button id="settingsBtn" class="icon-btn" title="Settings">⚙️</button>
+    </header>
+
+    <div id="notConfigured" class="warning" style="display: none;">
+      <p>⚠️ Please configure your GitHub settings first.</p>
+      <button id="openSettings">Open Settings</button>
+    </div>
+
+    <div id="mainContent">
+      <div class="current-page">
+        <label>Current Page:</label>
+        <div id="currentUrl" class="url-display"></div>
+        <div id="currentTitle" class="title-display"></div>
+      </div>
+
+      <div class="form-group">
+        <label for="tags">Tags (comma-separated):</label>
+        <input type="text" id="tags" placeholder="e.g., tutorial, javascript, tools">
+      </div>
+
+      <div class="form-group">
+        <label for="notes">Notes (optional):</label>
+        <textarea id="notes" rows="3" placeholder="Add any notes about this link..."></textarea>
+      </div>
+
+      <div class="form-group">
+        <label for="category">Category:</label>
+        <select id="category">
+          <option value="general">General</option>
+          <option value="development">Development</option>
+          <option value="design">Design</option>
+          <option value="research">Research</option>
+          <option value="tools">Tools</option>
+          <option value="reading">Reading</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+
+      <div class="actions">
+        <button id="saveBtn" class="primary-btn">💾 Save Link</button>
+      </div>
+
+      <div id="status" class="status"></div>
+
+      <div class="stats">
+        <div class="stat-item">
+          <span class="stat-label">Pending Sync:</span>
+          <span id="pendingCount">0</span>
+        </div>
+        <div class="stat-item">
+          <span class="stat-label">Total Saved:</span>
+          <span id="totalCount">0</span>
+        </div>
+      </div>
+
+      <div class="footer-actions">
+        <button id="syncNow" class="secondary-btn">🔄 Sync Now</button>
+        <button id="viewLinks" class="secondary-btn">📋 View All Links</button>
+      </div>
+    </div>
+  </div>
+  <script src="popup.js"></script>
+</body>
+</html>
