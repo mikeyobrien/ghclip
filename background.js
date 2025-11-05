@@ -239,7 +239,7 @@ async function syncLinksToFile(path, newLinks, settings) {
       sha = data.sha;
 
       // Decode content
-      const content = atob(data.content);
+      const content = decodeBase64(data.content);
       const fileData = JSON.parse(content);
 
       existingLinks = fileData.links || [];
@@ -261,7 +261,7 @@ async function syncLinksToFile(path, newLinks, settings) {
     links: allLinks
   };
 
-  const encodedContent = btoa(JSON.stringify(fileContent, null, 2));
+  const encodedContent = encodeBase64(JSON.stringify(fileContent, null, 2));
 
   // Create or update file
   const updateData = {
@@ -291,18 +291,14 @@ async function syncLinksToFile(path, newLinks, settings) {
   console.log(`Successfully updated ${path}`);
 }
 
-// Store native base64 functions before wrapping
-const nativeAtob = globalThis.atob;
-const nativeBtoa = globalThis.btoa;
-
-// Helper to decode base64 (for older browsers)
-function atob(str) {
-  return decodeURIComponent(escape(nativeAtob(str)));
+// Helper to decode base64 with UTF-8 support
+function decodeBase64(str) {
+  return decodeURIComponent(escape(atob(str)));
 }
 
-// Helper to encode base64
-function btoa(str) {
-  return nativeBtoa(unescape(encodeURIComponent(str)));
+// Helper to encode base64 with UTF-8 support
+function encodeBase64(str) {
+  return btoa(unescape(encodeURIComponent(str)));
 }
 
 // Initialize sync schedule on startup
