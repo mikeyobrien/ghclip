@@ -75,14 +75,14 @@ document.addEventListener('DOMContentLoaded', async () => {
     elements.createRepoModal.style.display = 'none';
   });
 
+  // Periodically check if installation completed (when in "needs installation" state)
+  let installCheckInterval = null;
+
   // Manual config event listeners
   elements.saveBtn.addEventListener('click', saveSettings);
   elements.testConnection.addEventListener('click', testGitHubConnection);
   elements.exportData.addEventListener('click', exportAllData);
   elements.clearLocal.addEventListener('click', clearLocalStorage);
-
-  // Periodically check if installation completed (when in "needs installation" state)
-  let installCheckInterval = null;
 
   // GitHub App Functions
 
