@@ -81,7 +81,9 @@ class GitHubAppAuth {
       });
 
       if (!response.ok) {
-        throw new Error(`Failed to start device flow: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error('Device flow failed:', response.status, errorText);
+        throw new Error(`Failed to start device flow: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
