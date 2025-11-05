@@ -1,23 +1,29 @@
-// Options page script for GHClip with OAuth support
+// Options page script for GHClip with GitHub App support
 document.addEventListener('DOMContentLoaded', async () => {
-  // Initialize GitHub Auth
-  const githubAuth = new GitHubAuth();
+  // Initialize GitHub App Auth
+  const githubApp = new GitHubAppAuth();
   let currentAuthFlow = null;
 
   const elements = {
-    // OAuth elements
-    oauthLogin: document.getElementById('oauthLogin'),
-    oauthDisconnect: document.getElementById('oauthDisconnect'),
-    oauthNotConnected: document.getElementById('oauthNotConnected'),
-    oauthConnected: document.getElementById('oauthConnected'),
-    oauthUser: document.getElementById('oauthUser'),
-    oauthEmail: document.getElementById('oauthEmail'),
-    oauthAvatar: document.getElementById('oauthAvatar'),
+    // GitHub App elements
+    appLogin: document.getElementById('appLogin'),
+    appDisconnect: document.getElementById('appDisconnect'),
+    appNotConnected: document.getElementById('appNotConnected'),
+    appNeedsInstallation: document.getElementById('appNeedsInstallation'),
+    appConnected: document.getElementById('appConnected'),
+    installApp: document.getElementById('installApp'),
+    manageInstallation: document.getElementById('manageInstallation'),
+    appUser: document.getElementById('appUser'),
+    appEmail: document.getElementById('appEmail'),
+    appAvatar: document.getElementById('appAvatar'),
+    appRepoCount: document.getElementById('appRepoCount'),
     deviceFlowModal: document.getElementById('deviceFlowModal'),
     deviceCode: document.getElementById('deviceCode'),
     copyCode: document.getElementById('copyCode'),
     openGitHub: document.getElementById('openGitHub'),
     cancelAuth: document.getElementById('cancelAuth'),
+    installSuccessModal: document.getElementById('installSuccessModal'),
+    closeInstallSuccess: document.getElementById('closeInstallSuccess'),
     repoSelection: document.getElementById('repoSelection'),
     repoSelect: document.getElementById('repoSelect'),
     createNewRepo: document.getElementById('createNewRepo'),
@@ -46,14 +52,20 @@ document.addEventListener('DOMContentLoaded', async () => {
 
   // Load saved settings
   await loadSettings();
-  await checkOAuthStatus();
+  await checkAppStatus();
 
-  // OAuth Event listeners
-  elements.oauthLogin.addEventListener('click', startOAuthFlow);
-  elements.oauthDisconnect.addEventListener('click', disconnectOAuth);
+  // GitHub App Event listeners
+  elements.appLogin.addEventListener('click', startAppAuthFlow);
+  elements.appDisconnect.addEventListener('click', disconnectApp);
+  elements.installApp.addEventListener('click', openAppInstallation);
+  elements.manageInstallation.addEventListener('click', openAppManagement);
   elements.copyCode.addEventListener('click', copyDeviceCode);
   elements.openGitHub.addEventListener('click', openGitHubAuth);
-  elements.cancelAuth.addEventListener('click', cancelOAuthFlow);
+  elements.cancelAuth.addEventListener('click', cancelAuthFlow);
+  elements.closeInstallSuccess.addEventListener('click', () => {
+    elements.installSuccessModal.style.display = 'none';
+    location.reload(); // Reload to check installation status
+  });
   elements.repoSelect.addEventListener('change', handleRepoSelection);
   elements.createNewRepo.addEventListener('click', () => {
     elements.createRepoModal.style.display = 'flex';
@@ -69,42 +81,110 @@ document.addEventListener('DOMContentLoaded', async () => {
   elements.exportData.addEventListener('click', exportAllData);
   elements.clearLocal.addEventListener('click', clearLocalStorage);
 
-  // OAuth Functions
+  // Periodically check if installation completed (when in "needs installation" state)
+  let installCheckInterval = null;
 
-  async function checkOAuthStatus() {
-    const data = await chrome.storage.sync.get(['oauthToken', 'oauthUser']);
+  // GitHub App Functions
 
-    if (data.oauthToken && data.oauthUser) {
-      // User is authenticated via OAuth
-      showOAuthConnected(data.oauthUser);
-      await loadRepositories(data.oauthToken);
+  async function checkAppStatus() {
+    const data = await chrome.storage.sync.get([
+      'appUserToken',
+      'appUserInfo',
+      'appInstallation',
+      'appInstallationToken',
+      'appTokenExpiry'
+    ]);
+
+    if (data.appUserToken && data.appUserInfo) {
+      // User is authenticated
+      if (data.appInstallation) {
+        // App is installed - show connected state
+        await showAppConnected(data.appUserInfo, data.appInstallation);
+      } else {
+        // Need to install app
+        showAppNeedsInstallation(data.appUserInfo);
+      }
     } else {
-      showOAuthNotConnected();
+      showAppNotConnected();
     }
   }
 
-  function showOAuthConnected(user) {
-    elements.oauthNotConnected.style.display = 'none';
-    elements.oauthConnected.style.display = 'block';
-    elements.oauthUser.textContent = user.login;
-    elements.oauthEmail.textContent = user.email || user.login + '@users.noreply.github.com';
-    elements.oauthAvatar.src = user.avatar_url;
-    elements.repoSelection.style.display = 'block';
-  }
-
-  function showOAuthNotConnected() {
-    elements.oauthNotConnected.style.display = 'block';
-    elements.oauthConnected.style.display = 'none';
+  function showAppNotConnected() {
+    elements.appNotConnected.style.display = 'block';
+    elements.appNeedsInstallation.style.display = 'none';
+    elements.appConnected.style.display = 'none';
     elements.repoSelection.style.display = 'none';
   }
 
-  async function startOAuthFlow() {
+  function showAppNeedsInstallation(userInfo) {
+    elements.appNotConnected.style.display = 'none';
+    elements.appNeedsInstallation.style.display = 'block';
+    elements.appConnected.style.display = 'none';
+    elements.repoSelection.style.display = 'none';
+
+    // Start checking for installation
+    if (!installCheckInterval) {
+      installCheckInterval = setInterval(checkInstallationStatus, 5000);
+    }
+  }
+
+  async function showAppConnected(userInfo, installation) {
+    elements.appNotConnected.style.display = 'none';
+    elements.appNeedsInstallation.style.display = 'none';
+    elements.appConnected.style.display = 'block';
+    elements.appUser.textContent = userInfo.login;
+    elements.appEmail.textContent = userInfo.email || userInfo.login + '@users.noreply.github.com';
+    elements.appAvatar.src = userInfo.avatar_url;
+    elements.repoSelection.style.display = 'block';
+
+    // Stop installation checking
+    if (installCheckInterval) {
+      clearInterval(installCheckInterval);
+      installCheckInterval = null;
+    }
+
+    // Load repositories
+    await loadInstallationRepositories();
+
+    // Show repo count
+    const repoCount = elements.repoSelect.options.length - 1; // Exclude placeholder
+    elements.appRepoCount.textContent = `${repoCount} ${repoCount === 1 ? 'repository' : 'repositories'}`;
+  }
+
+  async function checkInstallationStatus() {
     try {
-      elements.oauthLogin.disabled = true;
+      const data = await chrome.storage.sync.get(['appUserToken']);
+      if (!data.appUserToken) return;
+
+      const installation = await githubApp.checkInstallation(data.appUserToken);
+
+      if (installation) {
+        // Installation found!
+        await chrome.storage.sync.set({
+          appInstallation: installation
+        });
+
+        // Show success modal
+        elements.installSuccessModal.style.display = 'flex';
+
+        // Clear the check interval
+        if (installCheckInterval) {
+          clearInterval(installCheckInterval);
+          installCheckInterval = null;
+        }
+      }
+    } catch (error) {
+      console.error('Error checking installation:', error);
+    }
+  }
+
+  async function startAppAuthFlow() {
+    try {
+      elements.appLogin.disabled = true;
       showStatus('Starting GitHub authentication...', 'info');
 
-      // Start device flow
-      currentAuthFlow = await githubAuth.authenticate();
+      // Start authentication flow
+      currentAuthFlow = await githubApp.authenticate();
       const deviceFlow = currentAuthFlow.deviceFlow;
 
       // Show modal with device code
@@ -116,49 +196,85 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       // Wait for user to authorize
       try {
-        const result = await currentAuthFlow.waitForToken();
+        const result = await currentAuthFlow.waitForAuth();
 
-        // Save OAuth token and user info
+        // Save user token and info
         await chrome.storage.sync.set({
-          oauthToken: result.accessToken,
-          oauthUser: result.user,
-          authMethod: 'oauth'
+          appUserToken: result.userToken,
+          appUserInfo: result.userInfo,
+          authMethod: 'github-app'
         });
 
         // Hide modal
         elements.deviceFlowModal.style.display = 'none';
 
-        // Show connected state
-        showOAuthConnected(result.user);
+        if (result.needsInstallation) {
+          // Show installation prompt
+          showAppNeedsInstallation(result.userInfo);
+          showStatus('Please install the GitHub App to continue', 'info');
+        } else {
+          // Save installation info
+          await chrome.storage.sync.set({
+            appInstallation: result.installation
+          });
 
-        // Load repositories
-        await loadRepositories(result.accessToken);
+          // Get installation token
+          const installationToken = await githubApp.getInstallationToken(
+            result.userToken,
+            result.installation.id
+          );
 
-        showStatus('Successfully connected to GitHub!', 'success');
+          await chrome.storage.sync.set({
+            appInstallationToken: installationToken.token,
+            appTokenExpiry: installationToken.expiresAt
+          });
+
+          // Show connected state
+          await showAppConnected(result.userInfo, result.installation);
+          showStatus('Successfully connected with GitHub App!', 'success');
+        }
       } catch (error) {
         elements.deviceFlowModal.style.display = 'none';
         throw error;
       }
     } catch (error) {
-      console.error('OAuth flow failed:', error);
+      console.error('App auth flow failed:', error);
       showStatus('Authentication failed: ' + error.message, 'error');
     } finally {
-      elements.oauthLogin.disabled = false;
+      elements.appLogin.disabled = false;
       currentAuthFlow = null;
     }
   }
 
-  async function disconnectOAuth() {
-    if (!confirm('Are you sure you want to disconnect your GitHub account?')) {
+  function openAppInstallation() {
+    const installUrl = githubApp.getInstallationUrl();
+    window.open(installUrl, '_blank');
+    showStatus('Follow the instructions on GitHub to install the app', 'info');
+  }
+
+  function openAppManagement() {
+    // Open GitHub settings for managing installations
+    window.open('https://github.com/settings/installations', '_blank');
+  }
+
+  async function disconnectApp() {
+    if (!confirm('Are you sure you want to disconnect the GitHub App? This will remove access to your repositories.')) {
       return;
     }
 
     try {
-      // Clear OAuth data but keep manual config
-      await chrome.storage.sync.remove(['oauthToken', 'oauthUser', 'authMethod']);
+      // Clear app data
+      await chrome.storage.sync.remove([
+        'appUserToken',
+        'appUserInfo',
+        'appInstallation',
+        'appInstallationToken',
+        'appTokenExpiry',
+        'authMethod'
+      ]);
 
-      showOAuthNotConnected();
-      showStatus('Disconnected from GitHub', 'success');
+      showAppNotConnected();
+      showStatus('Disconnected from GitHub App', 'success');
     } catch (error) {
       console.error('Error disconnecting:', error);
       showStatus('Error disconnecting: ' + error.message, 'error');
@@ -175,20 +291,47 @@ document.addEventListener('DOMContentLoaded', async () => {
   }
 
   function openGitHubAuth() {
-    // Function is set dynamically in startOAuthFlow
+    // Function is set dynamically in startAppAuthFlow
   }
 
-  function cancelOAuthFlow() {
+  function cancelAuthFlow() {
     elements.deviceFlowModal.style.display = 'none';
     currentAuthFlow = null;
     showStatus('Authentication cancelled', 'info');
   }
 
-  async function loadRepositories(token) {
+  async function loadInstallationRepositories() {
     try {
-      showStatus('Loading your repositories...', 'info');
+      showStatus('Loading repositories...', 'info');
 
-      const repos = await githubAuth.getRepositories(token);
+      const data = await chrome.storage.sync.get([
+        'appUserToken',
+        'appInstallation',
+        'appInstallationToken',
+        'appTokenExpiry'
+      ]);
+
+      if (!data.appUserToken || !data.appInstallation) {
+        throw new Error('Not authenticated');
+      }
+
+      // Refresh token if needed
+      const refreshedToken = await githubApp.refreshInstallationTokenIfNeeded(
+        data.appUserToken,
+        data.appInstallation.id,
+        data.appInstallationToken,
+        data.appTokenExpiry
+      );
+
+      if (refreshedToken.token !== data.appInstallationToken) {
+        await chrome.storage.sync.set({
+          appInstallationToken: refreshedToken.token,
+          appTokenExpiry: refreshedToken.expiresAt
+        });
+      }
+
+      // Get repositories
+      const repos = await githubApp.getInstallationRepositories(refreshedToken.token);
 
       // Clear existing options
       elements.repoSelect.innerHTML = '<option value="">Select a repository...</option>';
@@ -199,7 +342,8 @@ document.addEventListener('DOMContentLoaded', async () => {
         option.value = JSON.stringify({
           owner: repo.owner.login,
           repo: repo.name,
-          fullName: repo.full_name
+          fullName: repo.full_name,
+          id: repo.id
         });
         option.textContent = repo.full_name + (repo.private ? ' 🔒' : '');
         elements.repoSelect.appendChild(option);
@@ -239,14 +383,14 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.githubOwner.value = repoData.owner;
       elements.githubRepo.value = repoData.repo;
 
-      // Get OAuth token
-      const data = await chrome.storage.sync.get(['oauthToken']);
+      // Get installation token
+      const data = await chrome.storage.sync.get(['appInstallationToken']);
 
       // Save repository selection
       await chrome.storage.sync.set({
         githubOwner: repoData.owner,
         githubRepo: repoData.repo,
-        githubToken: data.oauthToken
+        githubToken: data.appInstallationToken
       });
 
       showStatus(`Selected repository: ${repoData.fullName}`, 'success');
@@ -276,24 +420,38 @@ document.addEventListener('DOMContentLoaded', async () => {
       elements.confirmCreateRepo.disabled = true;
       showStatus('Creating repository...', 'info');
 
-      const data = await chrome.storage.sync.get(['oauthToken']);
+      const data = await chrome.storage.sync.get(['appUserToken', 'appInstallation']);
 
-      if (!data.oauthToken) {
+      if (!data.appUserToken) {
         throw new Error('Not authenticated');
       }
 
-      const repo = await githubAuth.createRepository(
-        data.oauthToken,
+      const repo = await githubApp.createRepository(
+        data.appUserToken,
         repoName,
         isPrivate,
         repoDesc
       );
 
+      // Add repository to installation
+      if (data.appInstallation) {
+        try {
+          await githubApp.addRepositoryToInstallation(
+            data.appUserToken,
+            data.appInstallation.id,
+            repo.id
+          );
+        } catch (error) {
+          console.warn('Could not auto-add to installation:', error);
+          showStatus('Repository created! Please add it to your GHClip installation on GitHub.', 'info');
+        }
+      }
+
       // Close modal
       elements.createRepoModal.style.display = 'none';
 
       // Reload repositories
-      await loadRepositories(data.oauthToken);
+      await loadInstallationRepositories();
 
       // Select the new repository
       for (let option of elements.repoSelect.options) {
@@ -321,7 +479,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
   }
 
-  // Manual Configuration Functions
+  // Manual Configuration Functions (same as before)
 
   async function loadSettings() {
     const syncData = await chrome.storage.sync.get([
@@ -336,15 +494,15 @@ document.addEventListener('DOMContentLoaded', async () => {
       'authMethod'
     ]);
 
-    // Only populate manual fields if not using OAuth
-    if (syncData.authMethod !== 'oauth') {
+    // Only populate manual fields if not using GitHub App
+    if (syncData.authMethod !== 'github-app') {
       elements.githubOwner.value = syncData.githubOwner || '';
       elements.githubRepo.value = syncData.githubRepo || '';
       elements.githubToken.value = syncData.githubToken || '';
     } else {
       elements.githubOwner.value = syncData.githubOwner || '';
       elements.githubRepo.value = syncData.githubRepo || '';
-      // Don't show OAuth token in manual field
+      // Don't show installation token in manual field
     }
 
     elements.branchName.value = syncData.branchName || 'main';
@@ -455,7 +613,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 
       const exportData = {
         exported: new Date().toISOString(),
-        version: '1.0',
+        version: '2.0',
         totalLinks: links.length,
         links
       };

@@ -4,8 +4,10 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 
 ## ✨ Features
 
-- **🚀 OAuth Integration**: One-click GitHub authentication with device flow (no tokens to manage!)
+- **🚀 GitHub App Integration**: Modern GitHub App authentication with fine-grained permissions
+- **⚡ Auto Token Refresh**: Installation tokens automatically refresh (1-hour expiry)
 - **📁 Repository Management**: Browse, select, or create repositories directly from the extension
+- **🔐 Fine-Grained Access**: Choose exactly which repositories to grant access to
 - **🔖 Quick Save**: Save links with one click from any webpage
 - **🏷️ Organization**: Add tags, categories, and notes to your links
 - **📦 Scalable Storage**: Designed to handle thousands of links efficiently
@@ -14,9 +16,17 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 - **📊 Multiple Storage Strategies**: Organize links by month, year, or category
 - **📥 Export**: Export your links to JSON format anytime
 - **🎨 Clean UI**: Beautiful, modern interface built with user experience in mind
-- **🔒 Secure**: Uses GitHub's OAuth for secure authentication (or manual tokens if preferred)
+- **⚙️ Flexible Auth**: GitHub App (recommended) or manual token configuration
 
 ## 🚀 Installation
+
+### Prerequisites (for developers)
+
+**Important**: To use the GitHub App authentication, you need to register your own GitHub App first.
+
+📖 **See [GITHUB_APP_SETUP.md](GITHUB_APP_SETUP.md) for detailed setup instructions**
+
+For end-users installing from a published version, the app is already registered and ready to use.
 
 ### From Source (Development)
 
@@ -25,6 +35,8 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
    git clone https://github.com/yourusername/ghclip.git
    cd ghclip
    ```
+
+2. **Register GitHub App** (see GITHUB_APP_SETUP.md)
 
 2. **Generate Icons (Optional):**
    - See `icons/README.md` for instructions on creating icon files
@@ -38,32 +50,36 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 
 ## ⚙️ Setup & Configuration
 
-### Method 1: Quick Setup with OAuth (Recommended) 🚀
+### Method 1: Quick Setup with GitHub App (Recommended) 🚀
 
-The easiest way to get started! OAuth provides secure, one-click authentication without managing tokens.
+The easiest and most secure way! GitHub Apps provide fine-grained permissions, auto-refreshing tokens, and better security.
 
 1. **Open Settings**
    - Click the GHClip extension icon in Chrome
    - Click the settings (⚙️) button
 
-2. **Connect with GitHub**
-   - Click the "Connect with GitHub" button in the OAuth section
+2. **Authenticate with GitHub**
+   - Click the "Connect with GitHub" button in the GitHub App section
    - A modal will appear with a device code
    - Click "Copy" to copy the code
    - Click "Open GitHub Authorization" to open GitHub in a new tab
+   - Paste the code and authorize
 
-3. **Authorize GHClip**
-   - Paste the device code on GitHub's authorization page
-   - Click "Continue" and authorize GHClip
-   - Return to the extension settings page
+3. **Install the GitHub App**
+   - After authentication, click "Install GitHub App"
+   - You'll be redirected to GitHub to choose repositories
+   - Select which repositories GHClip should have access to (recommended: create a dedicated repo first)
+   - Click "Install" on GitHub
+   - Return to the extension - it will auto-detect the installation
 
 4. **Select Repository**
-   - Once connected, you'll see your GitHub profile
-   - Choose an existing repository from the dropdown, or
-   - Click "Create New Repository" to create one specifically for GHClip
+   - Once installed, you'll see your accessible repositories
+   - Choose a repository from the dropdown, or
+   - Click "Create New Repository" to create one for GHClip
      - Name it (e.g., "my-saved-links")
      - Choose whether it should be private (recommended)
      - Click "Create Repository"
+     - The app will automatically be granted access to the new repo
 
 5. **Configure Sync Settings**
    - **Auto-sync**: Enable/disable automatic syncing
@@ -219,8 +235,10 @@ ghclip/
 
 ## 🔮 Future Enhancements
 
-- [x] **OAuth Integration**: ✅ Implemented! One-click authentication with device flow
+- [x] **GitHub App Integration**: ✅ Implemented! Modern app-based authentication
+- [x] **Token Auto-Refresh**: ✅ Implemented! Installation tokens refresh automatically
 - [x] **Repository Management**: ✅ Implemented! Browse and create repos from extension
+- [x] **Fine-Grained Permissions**: ✅ Implemented! Choose specific repos
 - [ ] **Browser Sync**: Sync across multiple Chrome profiles/devices
 - [ ] **Import from Bookmarks**: Import existing Chrome bookmarks
 - [ ] **Collections**: Group links into custom collections
@@ -237,21 +255,36 @@ ghclip/
 
 ## 🐛 Troubleshooting
 
-### OAuth Issues
+### GitHub App Issues
 
 #### "Authentication timeout" error
 - The device code expired (15 minutes)
 - Click "Connect with GitHub" again to get a new code
 - Make sure to authorize on GitHub before the timeout
 
+#### App installation not detected
+- Make sure you completed the installation on GitHub
+- Wait a few seconds - the extension checks every 5 seconds
+- Try clicking the "Manage Installation" button to verify
+- Or disconnect and reconnect your account
+
 #### Can't see my repositories
-- Make sure you completed the OAuth authorization on GitHub
+- Make sure you installed the app on at least one repository
+- Click "Manage Installation" to add more repositories
 - Try disconnecting and reconnecting your account
-- Check that you authorized the correct GitHub account
+- Verify the app is installed at: https://github.com/settings/installations
 
 #### Created repository doesn't appear
-- Click the refresh button in the extension settings
-- Or disconnect and reconnect to reload the repository list
+- The app needs to be installed on the new repository
+- When creating via extension, it's auto-added (if possible)
+- Otherwise, go to GitHub Settings → Applications → GHClip → Configure
+- Add the new repository to the installation
+
+#### Token expired or invalid
+- Installation tokens auto-refresh every hour
+- If refresh fails, try disconnecting and reconnecting
+- Check that the GitHub App is still installed
+- Verify your internet connection
 
 ### General Issues
 

@@ -487,3 +487,64 @@ code {
   gap: 12px;
   margin-top: 24px;
 }
+
+/* GitHub App Specific Styles */
+.info-box {
+  background: #d4edda;
+  border: 1px solid #c3e6cb;
+  border-radius: 6px;
+  padding: 16px;
+  margin-bottom: 16px;
+  text-align: center;
+}
+
+.info-box p {
+  margin: 4px 0;
+  color: #155724;
+}
+
+.help-text {
+  text-align: center;
+  color: #6c757d;
+  font-size: 13px;
+  margin-top: 8px;
+}
+
+.app-install-info {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+  margin-top: 8px;
+  font-size: 13px;
+}
+
+.badge {
+  display: inline-block;
+  padding: 4px 10px;
+  background: #28a745;
+  color: white;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.app-actions {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.success-modal {
+  text-align: center;
+}
+
+.success-modal h3 {
+  color: #28a745;
+  font-size: 24px;
+  margin-bottom: 20px;
+}
+
+.success-modal p {
+  margin-bottom: 12px;
+  line-height: 1.6;
+}

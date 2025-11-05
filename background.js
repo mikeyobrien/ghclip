@@ -1,7 +1,71 @@
 // Background service worker for GHClip
 // Handles GitHub synchronization and background tasks
+// Supports both GitHub App (with token refresh) and manual token auth
 
 let syncIntervalId = null;
+
+// GitHub App token refresh helper
+async function refreshAppTokenIfNeeded() {
+  const data = await chrome.storage.sync.get([
+    'authMethod',
+    'appUserToken',
+    'appInstallation',
+    'appInstallationToken',
+    'appTokenExpiry'
+  ]);
+
+  // Only refresh if using GitHub App
+  if (data.authMethod !== 'github-app') {
+    return null;
+  }
+
+  if (!data.appUserToken || !data.appInstallation) {
+    throw new Error('GitHub App not configured');
+  }
+
+  // Check if token needs refresh (5 minutes before expiry)
+  const now = new Date();
+  const expiry = data.appTokenExpiry ? new Date(data.appTokenExpiry) : new Date(0);
+  const refreshThreshold = new Date(expiry.getTime() - 5 * 60 * 1000);
+
+  if (now >= refreshThreshold) {
+    console.log('Installation token expired or expiring soon, refreshing...');
+
+    try {
+      // Get new installation token
+      const response = await fetch(
+        `https://api.github.com/user/installations/${data.appInstallation.id}/access_tokens`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${data.appUserToken}`,
+            'Accept': 'application/vnd.github.v3+json'
+          }
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error(`Failed to refresh token: ${response.statusText}`);
+      }
+
+      const tokenData = await response.json();
+
+      // Save new token
+      await chrome.storage.sync.set({
+        appInstallationToken: tokenData.token,
+        appTokenExpiry: tokenData.expires_at
+      });
+
+      console.log('Installation token refreshed successfully');
+      return tokenData.token;
+    } catch (error) {
+      console.error('Error refreshing installation token:', error);
+      throw error;
+    }
+  }
+
+  return data.appInstallationToken;
+}
 
 // Initialize on install
 chrome.runtime.onInstalled.addListener(() => {
@@ -53,6 +117,17 @@ async function setupSyncSchedule() {
 async function syncToGitHub() {
   console.log('Starting sync to GitHub...');
 
+  // Refresh GitHub App token if needed
+  try {
+    const refreshedToken = await refreshAppTokenIfNeeded();
+    if (refreshedToken) {
+      console.log('Using refreshed GitHub App token');
+    }
+  } catch (error) {
+    console.error('Token refresh failed:', error);
+    // Continue with existing token if refresh fails
+  }
+
   // Get settings
   const settings = await chrome.storage.sync.get([
     'githubToken',
@@ -60,7 +135,8 @@ async function syncToGitHub() {
     'githubOwner',
     'branchName',
     'batchSize',
-    'storageStrategy'
+    'storageStrategy',
+    'authMethod'
   ]);
 
   if (!settings.githubToken || !settings.githubRepo || !settings.githubOwner) {

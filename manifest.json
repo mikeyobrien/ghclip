@@ -1,8 +1,8 @@
 {
   "manifest_version": 3,
   "name": "GHClip - Save Links to GitHub",
-  "version": "2.0.0",
-  "description": "Save and manage thousands of web links directly to your GitHub repository with OAuth support",
+  "version": "2.1.0",
+  "description": "Save and manage thousands of web links directly to your GitHub repository with GitHub App integration",
   "permissions": [
     "activeTab",
     "storage",
