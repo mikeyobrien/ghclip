@@ -1,0 +1,16 @@
+{
+  "name": "ghclip-oauth-backend",
+  "version": "1.0.0",
+  "description": "Serverless backend for GHClip OAuth token exchange",
+  "main": "api/github-token.js",
+  "scripts": {
+    "dev": "vercel dev",
+    "deploy": "vercel --prod"
+  },
+  "keywords": ["oauth", "github", "chrome-extension"],
+  "author": "",
+  "license": "MIT",
+  "devDependencies": {
+    "vercel": "^33.0.0"
+  }
+}

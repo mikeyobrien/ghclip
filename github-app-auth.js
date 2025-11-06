@@ -25,6 +25,29 @@ class GitHubAppAuth {
     this.deviceCodeUrl = 'https://github.com/login/device/code';
     this.accessTokenUrl = 'https://github.com/login/oauth/access_token';
     this.installUrl = 'https://github.com/apps/ghclip/installations/new';
+
+    // Backend URL for secure token exchange
+    // TODO: Update this with your deployed backend URL
+    // Local development: 'http://localhost:3000/api/github-token'
+    // Production: 'https://your-project.vercel.app/api/github-token'
+    this.backendUrl = this.getBackendUrl();
+  }
+
+  /**
+   * Get the backend URL for token exchange
+   * Checks for environment/configuration
+   */
+  getBackendUrl() {
+    // In production, this should be set via build configuration
+    // For now, we'll use a placeholder that needs to be updated
+    const BACKEND_URL = 'BACKEND_URL_PLACEHOLDER';
+
+    if (BACKEND_URL === 'BACKEND_URL_PLACEHOLDER') {
+      console.warn('[Auth] Backend URL not configured! Update github-app-auth.js with your backend URL.');
+      console.warn('[Auth] Deploy backend from /backend directory - see backend/README.md');
+    }
+
+    return BACKEND_URL;
   }
 
   /**
@@ -188,52 +211,83 @@ class GitHubAppAuth {
   }
 
   /**
-   * Exchange authorization code for access token
+   * Exchange authorization code for access token via secure backend
    *
-   * IMPORTANT: For production, this should be done via a backend server
-   * to keep the client secret secure. However, for browser extensions
-   * (which are public clients), GitHub allows the exchange without a secret
-   * when using GitHub Apps.
+   * SECURITY: The client secret must NEVER be in browser code.
+   * This method calls a serverless backend function that securely
+   * exchanges the authorization code for an access token.
+   *
+   * Backend Setup: Deploy the backend from /backend directory
+   * See: backend/README.md for deployment instructions
    */
   async exchangeCodeForToken(code, redirectUri) {
     try {
-      console.log('[TokenExchange] Exchanging code for token...');
+      console.log('[TokenExchange] Exchanging code for token via backend...');
+      console.log('[TokenExchange] Backend URL:', this.backendUrl);
 
-      // For GitHub Apps, we can exchange the code for a user access token
-      // This is called from the background script to avoid CORS issues
-      const response = await fetch(this.accessTokenUrl, {
+      if (this.backendUrl === 'BACKEND_URL_PLACEHOLDER') {
+        throw new Error(
+          'Backend URL not configured! Deploy the backend from /backend directory. ' +
+          'See backend/README.md for instructions. ' +
+          'Then update BACKEND_URL in github-app-auth.js'
+        );
+      }
+
+      // Call backend to exchange code for token
+      // The backend keeps the client secret secure
+      const response = await fetch(this.backendUrl, {
         method: 'POST',
         headers: {
-          'Accept': 'application/json',
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
         },
         body: JSON.stringify({
-          client_id: this.clientId,
           code: code,
           redirect_uri: redirectUri
-          // Note: client_secret is optional for public clients in some flows
-          // For production, this exchange should happen on a backend server
         })
       });
 
-      console.log('[TokenExchange] Response status:', response.status);
+      console.log('[TokenExchange] Backend response status:', response.status);
 
       if (!response.ok) {
-        const errorText = await response.text();
-        console.error('[TokenExchange] Exchange failed:', errorText);
-        throw new Error(`Failed to exchange code for token: ${response.status} - ${errorText}`);
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[TokenExchange] Backend error:', errorData);
+        throw new Error(
+          `Token exchange failed: ${errorData.error || response.statusText}. ` +
+          `Make sure your backend is deployed and environment variables are set.`
+        );
       }
 
       const data = await response.json();
-      console.log('[TokenExchange] Successfully received token');
+
+      // Check for OAuth errors
+      if (data.error) {
+        throw new Error(`GitHub OAuth error: ${data.error} - ${data.error_description || 'No description'}`);
+      }
+
+      if (!data.access_token) {
+        throw new Error('No access token received from backend');
+      }
+
+      console.log('[TokenExchange] Successfully received token from backend');
 
       return {
         accessToken: data.access_token,
-        tokenType: data.token_type,
-        scope: data.scope
+        tokenType: data.token_type || 'bearer',
+        scope: data.scope || ''
       };
     } catch (error) {
       console.error('[TokenExchange] Error:', error);
+
+      // Provide helpful error messages
+      if (error.message.includes('Failed to fetch')) {
+        throw new Error(
+          'Cannot connect to backend server. ' +
+          'Make sure your backend is deployed and the URL is correct. ' +
+          'See backend/README.md for deployment instructions.'
+        );
+      }
+
       throw error;
     }
   }
