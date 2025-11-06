@@ -111,6 +111,35 @@ chrome.runtime.onMessage.addListener((request, sender, sendResponse) => {
     sendResponse({ success: true });
   }
 
+  // Handle OAuth device flow from background (to avoid CORS issues)
+  if (request.action === 'startDeviceFlow') {
+    console.log('[Background] Starting device flow...');
+    startDeviceFlowInBackground()
+      .then(result => {
+        console.log('[Background] Device flow started successfully');
+        sendResponse({ success: true, data: result });
+      })
+      .catch(error => {
+        console.error('[Background] Device flow failed:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep channel open for async response
+  }
+
+  if (request.action === 'pollForToken') {
+    console.log('[Background] Polling for token...');
+    pollForTokenInBackground(request.deviceCode, request.interval)
+      .then(result => {
+        console.log('[Background] Token received successfully');
+        sendResponse({ success: true, data: result });
+      })
+      .catch(error => {
+        console.error('[Background] Polling failed:', error);
+        sendResponse({ success: false, error: error.message });
+      });
+    return true; // Keep channel open for async response
+  }
+
   return false;
 });
 

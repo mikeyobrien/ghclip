@@ -25,6 +25,29 @@ class GitHubAppAuth {
     this.deviceCodeUrl = 'https://github.com/login/device/code';
     this.accessTokenUrl = 'https://github.com/login/oauth/access_token';
     this.installUrl = 'https://github.com/apps/ghclip/installations/new';
+
+    // Backend URL for secure token exchange
+    // TODO: Update this with your deployed backend URL
+    // Local development: 'http://localhost:3000/api/github-token'
+    // Production: 'https://your-project.vercel.app/api/github-token'
+    this.backendUrl = this.getBackendUrl();
+  }
+
+  /**
+   * Get the backend URL for token exchange
+   * Checks for environment/configuration
+   */
+  getBackendUrl() {
+    // In production, this should be set via build configuration
+    // For now, we'll use a placeholder that needs to be updated
+    const BACKEND_URL = 'BACKEND_URL_PLACEHOLDER';
+
+    if (BACKEND_URL === 'BACKEND_URL_PLACEHOLDER') {
+      console.warn('[Auth] Backend URL not configured! Update github-app-auth.js with your backend URL.');
+      console.warn('[Auth] Deploy backend from /backend directory - see docs/QUICK_START.md');
+    }
+
+    return BACKEND_URL;
   }
 
   /**
@@ -83,7 +106,17 @@ class GitHubAppAuth {
   }
 
   /**
-   * Start the Device Flow for user authentication
+   * Start OAuth flow using chrome.identity API (Standard Chrome Extension Pattern)
+   *
+   * SETUP REQUIREMENT:
+   * ==================
+   * The GitHub App must be configured with the correct redirect URL:
+   * 1. Get your extension ID from chrome://extensions/
+   * 2. Add this callback URL in GitHub App settings:
+   *    https://<EXTENSION_ID>.chromiumapp.org/
+   *
+   * For development with temporary extension IDs, you may need to update this
+   * each time the extension is reloaded.
    *
    * IMPORTANT: OAuth Scope Clarification
    * ====================================
@@ -99,8 +132,176 @@ class GitHubAppAuth {
    * - Automatic token refresh (installation tokens expire after 1 hour)
    * - Higher rate limits (15,000 req/hour vs 5,000 for PATs)
    */
-  async startDeviceFlow() {
+  async startChromeIdentityFlow() {
     try {
+      console.log('[ChromeIdentity] Starting OAuth flow...');
+
+      // Get the redirect URL that Chrome will use
+      const redirectURL = chrome.identity.getRedirectURL();
+      console.log('[ChromeIdentity] Redirect URL:', redirectURL);
+
+      // Build GitHub authorization URL
+      const authURL = new URL('https://github.com/login/oauth/authorize');
+      authURL.searchParams.set('client_id', this.clientId);
+      authURL.searchParams.set('redirect_uri', redirectURL);
+      authURL.searchParams.set('scope', 'read:user');
+      authURL.searchParams.set('state', this.generateRandomState());
+
+      console.log('[ChromeIdentity] Authorization URL:', authURL.toString());
+
+      return new Promise((resolve, reject) => {
+        chrome.identity.launchWebAuthFlow(
+          {
+            url: authURL.toString(),
+            interactive: true
+          },
+          (responseUrl) => {
+            if (chrome.runtime.lastError) {
+              console.error('[ChromeIdentity] Auth flow error:', chrome.runtime.lastError);
+              reject(new Error(chrome.runtime.lastError.message));
+              return;
+            }
+
+            if (!responseUrl) {
+              reject(new Error('No response URL received'));
+              return;
+            }
+
+            console.log('[ChromeIdentity] Received redirect URL');
+
+            try {
+              // Extract authorization code from redirect URL
+              const url = new URL(responseUrl);
+              const code = url.searchParams.get('code');
+              const error = url.searchParams.get('error');
+              const errorDescription = url.searchParams.get('error_description');
+
+              if (error) {
+                reject(new Error(`GitHub OAuth error: ${error} - ${errorDescription || 'No description'}`));
+                return;
+              }
+
+              if (!code) {
+                reject(new Error('No authorization code received'));
+                return;
+              }
+
+              console.log('[ChromeIdentity] Successfully received authorization code');
+              resolve({ code, redirectURL });
+            } catch (error) {
+              console.error('[ChromeIdentity] Error parsing response URL:', error);
+              reject(error);
+            }
+          }
+        );
+      });
+    } catch (error) {
+      console.error('[ChromeIdentity] Error starting OAuth flow:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Generate random state for CSRF protection
+   */
+  generateRandomState() {
+    const array = new Uint8Array(16);
+    crypto.getRandomValues(array);
+    return Array.from(array, byte => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  /**
+   * Exchange authorization code for access token via secure backend
+   *
+   * SECURITY: The client secret must NEVER be in browser code.
+   * This method calls a serverless backend function that securely
+   * exchanges the authorization code for an access token.
+   *
+   * Backend Setup: Deploy the backend from /backend directory
+   * See: docs/QUICK_START.md for deployment instructions
+   */
+  async exchangeCodeForToken(code, redirectUri) {
+    try {
+      console.log('[TokenExchange] Exchanging code for token via backend...');
+      console.log('[TokenExchange] Backend URL:', this.backendUrl);
+
+      if (this.backendUrl === 'BACKEND_URL_PLACEHOLDER') {
+        throw new Error(
+          'Backend URL not configured! Deploy the backend from /backend directory. ' +
+          'See docs/QUICK_START.md for instructions. ' +
+          'Then update BACKEND_URL in github-app-auth.js'
+        );
+      }
+
+      // Call backend to exchange code for token
+      // The backend keeps the client secret secure
+      const response = await fetch(this.backendUrl, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          code: code,
+          redirect_uri: redirectUri
+        })
+      });
+
+      console.log('[TokenExchange] Backend response status:', response.status);
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+        console.error('[TokenExchange] Backend error:', errorData);
+        throw new Error(
+          `Token exchange failed: ${errorData.error || response.statusText}. ` +
+          `Make sure your backend is deployed and environment variables are set.`
+        );
+      }
+
+      const data = await response.json();
+
+      // Check for OAuth errors
+      if (data.error) {
+        throw new Error(`GitHub OAuth error: ${data.error} - ${data.error_description || 'No description'}`);
+      }
+
+      if (!data.access_token) {
+        throw new Error('No access token received from backend');
+      }
+
+      console.log('[TokenExchange] Successfully received token from backend');
+
+      return {
+        accessToken: data.access_token,
+        tokenType: data.token_type || 'bearer',
+        scope: data.scope || ''
+      };
+    } catch (error) {
+      console.error('[TokenExchange] Error:', error);
+
+      // Provide helpful error messages
+      if (error.message.includes('Failed to fetch')) {
+        throw new Error(
+          'Cannot connect to backend server. ' +
+          'Make sure your backend is deployed and the URL is correct. ' +
+          'See docs/QUICK_START.md for deployment instructions.'
+        );
+      }
+
+      throw error;
+    }
+  }
+
+  /**
+   * DEPRECATED: Old device flow method - kept for reference
+   * Use startChromeIdentityFlow() instead
+   */
+  async startDeviceFlow() {
+    console.warn('[DeviceFlow] DEPRECATED: Device flow is not recommended for browser extensions. Use startChromeIdentityFlow() instead.');
+    try {
+      console.log('[DeviceFlow] Starting device flow with client_id:', this.clientId);
+      console.log('[DeviceFlow] Requesting from:', this.deviceCodeUrl);
+
       const response = await fetch(this.deviceCodeUrl, {
         method: 'POST',
         headers: {
@@ -113,13 +314,16 @@ class GitHubAppAuth {
         })
       });
 
+      console.log('[DeviceFlow] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Device flow failed:', response.status, errorText);
+        console.error('[DeviceFlow] Failed:', response.status, errorText);
         throw new Error(`Failed to start device flow: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('[DeviceFlow] Success! Received:', data);
 
       return {
         deviceCode: data.device_code,
@@ -129,7 +333,20 @@ class GitHubAppAuth {
         interval: data.interval
       };
     } catch (error) {
-      console.error('Error starting device flow:', error);
+      console.error('[DeviceFlow] Error starting device flow:', error);
+      console.error('[DeviceFlow] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        cause: error.cause
+      });
+
+      // Check if it's a network error (CORS, network failure, etc.)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('[DeviceFlow] This looks like a CORS or network error!');
+        throw new Error('Network error: Unable to reach GitHub OAuth server. This may be due to CORS restrictions or network issues.');
+      }
+
       throw error;
     }
   }
@@ -143,6 +360,8 @@ class GitHubAppAuth {
     return new Promise((resolve, reject) => {
       const poll = setInterval(async () => {
         try {
+          console.log('[Poll] Starting poll request at', new Date().toLocaleTimeString());
+
           const response = await fetch(this.accessTokenUrl, {
             method: 'POST',
             headers: {
@@ -156,8 +375,19 @@ class GitHubAppAuth {
             })
           });
 
+          console.log('[Poll] Response status:', response.status, response.statusText);
+
+          if (!response.ok) {
+            console.error('[Poll] Non-OK response:', response.status);
+            const errorText = await response.text();
+            console.error('[Poll] Error text:', errorText);
+            clearInterval(poll);
+            reject(new Error(`HTTP ${response.status}: ${errorText}`));
+            return;
+          }
+
           const data = await response.json();
-          console.log('[Poll]', new Date().toLocaleTimeString(), 'Response:', data);
+          console.log('[Poll]', new Date().toLocaleTimeString(), 'Response data:', data);
 
           if (data.error) {
             if (data.error === 'authorization_pending') {
@@ -191,6 +421,12 @@ class GitHubAppAuth {
             });
           }
         } catch (error) {
+          console.error('[Poll] Caught error during polling:', error);
+          console.error('[Poll] Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          });
           clearInterval(poll);
           reject(error);
         }
@@ -385,9 +621,39 @@ class GitHubAppAuth {
   }
 
   /**
-   * Complete authentication flow
+   * Complete authentication flow using chrome.identity API
    */
   async authenticate() {
+    console.log('[Auth] Starting authentication...');
+
+    // Step 1: Launch OAuth flow using chrome.identity
+    const { code, redirectURL } = await this.startChromeIdentityFlow();
+
+    // Step 2: Exchange code for access token
+    const tokenData = await this.exchangeCodeForToken(code, redirectURL);
+    const userToken = tokenData.accessToken;
+
+    // Step 3: Get user info
+    const userInfo = await this.getUserInfo(userToken);
+    console.log('[Auth] Got user info:', userInfo.login);
+
+    // Step 4: Check if app is installed
+    const installation = await this.checkInstallation(userToken);
+
+    return {
+      userToken,
+      userInfo,
+      installation,
+      needsInstallation: !installation
+    };
+  }
+
+  /**
+   * DEPRECATED: Old device flow authenticate method
+   * Kept for reference only
+   */
+  async authenticateWithDeviceFlow() {
+    console.warn('[Auth] DEPRECATED: Use authenticate() with chrome.identity instead');
     // Get user token first
     const userTokenFlow = await this.getUserToken();
 

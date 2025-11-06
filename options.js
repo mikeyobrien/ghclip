@@ -261,73 +261,49 @@ document.addEventListener('DOMContentLoaded', async () => {
   async function startAppAuthFlow() {
     try {
       elements.appLogin.disabled = true;
-      showStatus('Starting GitHub authentication...', 'info');
+      showStatus('Opening GitHub authorization...', 'info');
 
-      // Start authentication flow
-      currentAuthFlow = await githubApp.authenticate();
-      const deviceFlow = currentAuthFlow.deviceFlow;
+      // Start authentication flow using chrome.identity
+      // This will open GitHub in a popup window automatically
+      const result = await githubApp.authenticate();
 
-      // Show modal with device code
-      elements.deviceCode.textContent = deviceFlow.userCode;
-      elements.deviceFlowModal.style.display = 'flex';
-      elements.openGitHub.onclick = () => {
-        window.open(deviceFlow.verificationUri, '_blank');
-      };
+      console.log('[Options] Authentication result:', result);
 
-      // Start countdown timer
-      startAuthTimer(deviceFlow.expiresIn);
+      // Save user token and info
+      await chrome.storage.sync.set({
+        appUserToken: result.userToken,
+        appUserInfo: result.userInfo,
+        authMethod: 'github-app'
+      });
 
-      // Wait for user to authorize
-      try {
-        const result = await currentAuthFlow.waitForAuth();
-
-        // Stop timer on success
-        stopAuthTimer();
-
-        // Save user token and info
+      if (result.needsInstallation) {
+        // Show installation prompt
+        showAppNeedsInstallation(result.userInfo);
+        showStatus('Please install the GitHub App to continue', 'info');
+      } else {
+        // Save installation info
         await chrome.storage.sync.set({
-          appUserToken: result.userToken,
-          appUserInfo: result.userInfo,
-          authMethod: 'github-app'
+          appInstallation: result.installation
         });
 
-        // Hide modal
-        elements.deviceFlowModal.style.display = 'none';
+        // Get installation token
+        const installationToken = await githubApp.getInstallationToken(
+          result.userToken,
+          result.installation.id
+        );
 
-        if (result.needsInstallation) {
-          // Show installation prompt
-          showAppNeedsInstallation(result.userInfo);
-          showStatus('Please install the GitHub App to continue', 'info');
-        } else {
-          // Save installation info
-          await chrome.storage.sync.set({
-            appInstallation: result.installation
-          });
+        await chrome.storage.sync.set({
+          appInstallationToken: installationToken.token,
+          appTokenExpiry: installationToken.expiresAt
+        });
 
-          // Get installation token
-          const installationToken = await githubApp.getInstallationToken(
-            result.userToken,
-            result.installation.id
-          );
-
-          await chrome.storage.sync.set({
-            appInstallationToken: installationToken.token,
-            appTokenExpiry: installationToken.expiresAt
-          });
-
-          // Show connected state
-          await showAppConnected(result.userInfo, result.installation);
-          showStatus('Successfully connected with GitHub App!', 'success');
-        }
-      } catch (error) {
-        stopAuthTimer();
-        elements.deviceFlowModal.style.display = 'none';
-        throw error;
+        // Show connected state
+        await showAppConnected(result.userInfo, result.installation);
+        showStatus('Successfully connected with GitHub App!', 'success');
       }
     } catch (error) {
       console.error('App auth flow failed:', error);
       showStatus('Authentication failed: ' + error.message, 'error');
-      stopAuthTimer();
     } finally {
       elements.appLogin.disabled = false;
       currentAuthFlow = null;
