@@ -44,7 +44,7 @@ class GitHubAppAuth {
 
     if (BACKEND_URL === 'BACKEND_URL_PLACEHOLDER') {
       console.warn('[Auth] Backend URL not configured! Update github-app-auth.js with your backend URL.');
-      console.warn('[Auth] Deploy backend from /backend directory - see backend/README.md');
+      console.warn('[Auth] Deploy backend from /backend directory - see docs/QUICK_START.md');
     }
 
     return BACKEND_URL;
@@ -218,7 +218,7 @@ class GitHubAppAuth {
    * exchanges the authorization code for an access token.
    *
    * Backend Setup: Deploy the backend from /backend directory
-   * See: backend/README.md for deployment instructions
+   * See: docs/QUICK_START.md for deployment instructions
    */
   async exchangeCodeForToken(code, redirectUri) {
     try {
@@ -228,7 +228,7 @@ class GitHubAppAuth {
       if (this.backendUrl === 'BACKEND_URL_PLACEHOLDER') {
         throw new Error(
           'Backend URL not configured! Deploy the backend from /backend directory. ' +
-          'See backend/README.md for instructions. ' +
+          'See docs/QUICK_START.md for instructions. ' +
           'Then update BACKEND_URL in github-app-auth.js'
         );
       }
@@ -284,7 +284,7 @@ class GitHubAppAuth {
         throw new Error(
           'Cannot connect to backend server. ' +
           'Make sure your backend is deployed and the URL is correct. ' +
-          'See backend/README.md for deployment instructions.'
+          'See docs/QUICK_START.md for deployment instructions.'
         );
       }
 

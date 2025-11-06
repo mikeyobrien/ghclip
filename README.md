@@ -24,7 +24,7 @@ A powerful Chrome extension that allows you to save and manage thousands of web 
 
 **Important**: To use the GitHub App authentication, you need to register your own GitHub App first.
 
-📖 **See [GITHUB_APP_SETUP.md](GITHUB_APP_SETUP.md) for detailed setup instructions**
+📖 **See [docs/GITHUB_APP_SETUP.md](docs/GITHUB_APP_SETUP.md) for detailed setup instructions**
 
 For end-users installing from a published version, the app is already registered and ready to use.
 
