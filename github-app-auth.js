@@ -101,6 +101,9 @@ class GitHubAppAuth {
    */
   async startDeviceFlow() {
     try {
+      console.log('[DeviceFlow] Starting device flow with client_id:', this.clientId);
+      console.log('[DeviceFlow] Requesting from:', this.deviceCodeUrl);
+
       const response = await fetch(this.deviceCodeUrl, {
         method: 'POST',
         headers: {
@@ -113,13 +116,16 @@ class GitHubAppAuth {
         })
       });
 
+      console.log('[DeviceFlow] Response status:', response.status, response.statusText);
+
       if (!response.ok) {
         const errorText = await response.text();
-        console.error('Device flow failed:', response.status, errorText);
+        console.error('[DeviceFlow] Failed:', response.status, errorText);
         throw new Error(`Failed to start device flow: ${response.status} ${response.statusText} - ${errorText}`);
       }
 
       const data = await response.json();
+      console.log('[DeviceFlow] Success! Received:', data);
 
       return {
         deviceCode: data.device_code,
@@ -129,7 +135,20 @@ class GitHubAppAuth {
         interval: data.interval
       };
     } catch (error) {
-      console.error('Error starting device flow:', error);
+      console.error('[DeviceFlow] Error starting device flow:', error);
+      console.error('[DeviceFlow] Error details:', {
+        message: error.message,
+        stack: error.stack,
+        name: error.name,
+        cause: error.cause
+      });
+
+      // Check if it's a network error (CORS, network failure, etc.)
+      if (error instanceof TypeError && error.message.includes('fetch')) {
+        console.error('[DeviceFlow] This looks like a CORS or network error!');
+        throw new Error('Network error: Unable to reach GitHub OAuth server. This may be due to CORS restrictions or network issues.');
+      }
+
       throw error;
     }
   }
@@ -143,6 +162,8 @@ class GitHubAppAuth {
     return new Promise((resolve, reject) => {
       const poll = setInterval(async () => {
         try {
+          console.log('[Poll] Starting poll request at', new Date().toLocaleTimeString());
+
           const response = await fetch(this.accessTokenUrl, {
             method: 'POST',
             headers: {
@@ -156,8 +177,19 @@ class GitHubAppAuth {
             })
           });
 
+          console.log('[Poll] Response status:', response.status, response.statusText);
+
+          if (!response.ok) {
+            console.error('[Poll] Non-OK response:', response.status);
+            const errorText = await response.text();
+            console.error('[Poll] Error text:', errorText);
+            clearInterval(poll);
+            reject(new Error(`HTTP ${response.status}: ${errorText}`));
+            return;
+          }
+
           const data = await response.json();
-          console.log('[Poll]', new Date().toLocaleTimeString(), 'Response:', data);
+          console.log('[Poll]', new Date().toLocaleTimeString(), 'Response data:', data);
 
           if (data.error) {
             if (data.error === 'authorization_pending') {
@@ -191,6 +223,12 @@ class GitHubAppAuth {
             });
           }
         } catch (error) {
+          console.error('[Poll] Caught error during polling:', error);
+          console.error('[Poll] Error details:', {
+            message: error.message,
+            stack: error.stack,
+            name: error.name
+          });
           clearInterval(poll);
           reject(error);
         }
